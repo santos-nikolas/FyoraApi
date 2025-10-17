@@ -1,0 +1,12 @@
+﻿# build
+bin/
+obj/
+
+# banco local
+*.db
+*.db-shm
+*.db-wal
+
+# publish/temporários VS
+app_data/
+.vs/
