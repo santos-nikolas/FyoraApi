@@ -1,33 +1,30 @@
+# Fyora API (ASP.NET Core 8 + EF Core + Swagger + Gemini + UI)
 
-# Fyora API (ASP.NET Core 8 + EF Core + Swagger + Gemini)
-
-Uma Web API em **ASP.NET Core 8** com **Entity Framework Core (SQLite)**, **Swagger**, **LINQ** e integração com **Google Gemini (REST)** para o app **Fyora** — uma solução de impacto social que apoia pessoas em luta com jogo problemático.
+Web API do **Fyora**, projeto acadêmico com impacto social, que apoia pessoas em luta com **jogo problemático**.  
+Stack: **ASP.NET Core 8**, **Entity Framework Core (SQLite)**, **Swagger/OpenAPI**, **Google Gemini (REST)** e **UI estática** em `wwwroot/` para testar os endpoints.
 
 > **Status da Entrega (Rubrica da Sprint)**  
 > - ✅ CRUD completo com Entity Framework (**35%**)  
 > - ✅ Pesquisas com LINQ (**10%**)  
 > - ✅ Endpoints conectando com API externa (Gemini) (**20%**)  
 > - ✅ Documentação do projeto (**10%**) **→ este README**  
-> - ✅ Arquitetura em diagramas (**10%**) **→ ver seção Diagramas**  
-> - ⏳ Publicação em ambiente Cloud (Azure) (**15%**) **→ ver seção _Publicação em Azure_ (passo a passo).**  
->
-> **Ações pendentes do aluno para fechar a nota:** publicar no Azure e entregar o(s) links de acesso (API + plano/projeto na nuvem + repositório).
+> - ✅ Arquitetura em diagramas (**10%**) **→ ver seção _Diagramas_**  
+> - ✅ Publicação em ambiente Cloud (Azure) (**15%**) **→ ver seção _Publicação em Azure_**  
 
 ---
 
 ## Sumário
 - [Arquitetura (visão geral)](#arquitetura-visão-geral)
-- [Stack & Requisitos](#stack--requisitos)
-- [Configuração](#configuração)
+- [Endpoints](#endpoints)
+- [UI embutida (wwwroot)](#ui-embutida-wwwroot)
+- [Configuração (dev e prod)](#configuração-dev-e-prod)
 - [Execução local](#execução-local)
-- [Como testar os endpoints (Users & ProgressLogs)](#como-testar-os-endpoints-users--progresslogs)
-- [Endpoints principais](#endpoints-principais)
+- [Testes rápidos (cURL / Swagger)](#testes-rápidos-curl--swagger)
+- [Publicação em Azure](#publicação-em-azure)
+- [Troubleshooting (erros comuns)](#troubleshooting-erros-comuns)
 - [Consultas LINQ implementadas](#consultas-linq-implementadas)
-- [Integração com Google Gemini (REST)](#integração-com-google-gemini-rest)
-- [CORS e HTTPS](#cors-e-https)
-- [Publicação em Azure (passo a passo)](#publicação-em-azure-passo-a-passo)
-- [Diagramas (C4 + Sequência)](#diagramas-c4--sequência)
 - [Estrutura de pastas](#estrutura-de-pastas)
+- [Diagramas](#diagramas)
 - [Checklist da Rubrica](#checklist-da-rubrica)
 - [Licença](#licença)
 
@@ -35,55 +32,104 @@ Uma Web API em **ASP.NET Core 8** com **Entity Framework Core (SQLite)**, **Swag
 
 ## Arquitetura (visão geral)
 
-- **ASP.NET Core 8** com Controllers (Web API)
-- **EF Core + SQLite** (arquivo local `fyora_api.db`) para persistência simples
-- **Swagger/OpenAPI** para documentação e testes
-- **ChatController** → chama **Google Gemini (REST)** via `HttpClient`
-- **UsersController / ProgressLogs** → CRUD + consultas com LINQ
-- **CORS** e **HTTPS** configuráveis para desenvolvimento/produção
+- **ASP.NET Core 8** com Controllers (Web API).
+- **EF Core + SQLite** para persistência: banco é criado no primeiro run (`EnsureCreated`).  
+  - **Local:** `Data Source=fyora_api.db` (raiz do projeto)  
+  - **Azure:** `Data Source=/home/site/wwwroot/app_data/fyora_api.db`
+- **Swagger/OpenAPI** para documentação e testes (`/swagger`).
+- **ChatController** → integra com **Google Gemini** (REST via `HttpClient`).
+- **UI estática** em `wwwroot/index.html` (tema **Fênix** 🔥) para testar: Chat + CRUD Usuários + ProgressLogs.
+
+**Pontos importantes do `Program.cs`:**
+- `UseDefaultFiles` + `UseStaticFiles` → **`/` abre o `index.html`**.
+- Swagger JSON sempre; **UI em Dev** ou quando **`Swagger__Enabled=true`** (App Setting).
+- `HttpClient` nomeado `"gemini"` com base `https://generativelanguage.googleapis.com/`.
+- CORS opcional por `Cors:AllowedOrigins`.
+- `EnsureCreated` protegido por `try/catch` (não derruba a app se falhar).
 
 ---
 
-## Stack & Requisitos
+## Endpoints
 
-- .NET SDK **8.0+**
-- ASP.NET Core Web API
-- Entity Framework Core (**Microsoft.EntityFrameworkCore.Sqlite**)
-- Swagger (**Swashbuckle.AspNetCore**)
-- Google Gemini (REST) — **Generative Language API**
-- (Opcional) Azure CLI / Visual Studio 2022 para publicação
+### Chat (Gemini)
+- `POST /api/Chat/ask` — body: `{ "message": "..." }` → retorna texto (string).  
+- `GET /health` — healthcheck simples (`"healthy"`).  
+> *O endpoint `/api/Chat/ping` de testes foi mantido no código apenas para diagnóstico, mas não é listado na UI.*
+
+### Usuários
+- `GET /api/Users?search={nickname}` — lista (filtro opcional por nickname).
+- `GET /api/Users/{id}` — detalhe.
+- `POST /api/Users` — cria (`{ nickname, email }`).
+- `PUT /api/Users/{id}` — atualiza (`{ id, nickname, email }`).
+- `DELETE /api/Users/{id}` — remove.
+- `POST /api/Users/{userId}/progresslogs` — cria um log de progresso para o usuário.
+
+### ProgressLogs (suporte/fallback)
+- `GET /api/ProgressLogs` — lista todos (usado pela UI para exibir).
+- `POST /api/ProgressLogs` — cria (fallback caso a rota aninhada não exista).
 
 ---
 
-## Configuração
+## UI embutida (`wwwroot`)
 
-### AppSettings
-Arquivo `appsettings.json` (dev) contém:
+Há uma **interface simples e profissional (tema Fênix)** acessível na **raiz** da aplicação:
+```
+https://localhost:7219/         (dev)
+https://<seuapp>.azurewebsites.net/ (prod)
+```
+Ela inclui:
+- **Chat**: envia prompts ao Gemini.
+- **Usuários**: CRUD com busca por apelido.
+- **Progresso**: criação e listagem de ProgressLogs.
+
+A UI também permite **alterar a base da API** (útil quando a UI está em produção e você quer apontar para outra instância).
+
+> Caso publique e o `index.html` não apareça na raiz, verifique o `.csproj` para incluir a cópia da pasta `wwwroot` no publish:
+```xml
+<ItemGroup>
+  <Content Include="wwwroot\**\*">
+    <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+  </Content>
+</ItemGroup>
+```
+
+---
+
+## Configuração (dev e prod)
+
+### AppSettings (dev)
+`appsettings.json` (ou User Secrets) — **NÃO** versione chaves reais.
 ```json
 {
   "ConnectionStrings": { "DefaultConnection": "Data Source=fyora_api.db" },
   "Gemini": {
-    "ApiKey": "SUA_CHAVE_DO_AI_STUDIO_AQUI",
+    "ApiKey": "SUA_CHAVE_AQUI",
     "Model": "gemini-2.0-flash",
     "MaxTokens": 512,
     "Temperature": 0.7
   },
-  "Cors": {
-    "AllowedOrigins": [
-      "https://localhost:7219",
-      "http://localhost:5200",
-      "http://localhost:3000"
-    ]
-  }
+  "Cors": { "AllowedOrigins": [ "https://localhost:7219", "http://localhost:3000" ] }
 }
 ```
 
-> **Recomendado**: **NÃO** versionar a API key. Use **User Secrets** em dev e **App Settings** no Azure em prod:
+Configure a chave local com **User Secrets**:
 ```bash
-# na pasta do .csproj
-dotnet user-secrets set "Gemini:ApiKey" "SUA_CHAVE_REAL_DO_AI_STUDIO"
+dotnet user-secrets set "Gemini:ApiKey" "<SUA_CHAVE_REAL>"
 ```
-Também é suportada a variável de ambiente `GEMINI_API_KEY`.
+
+### App Settings (Azure)
+No App Service, use **dois underlines `__`** em nomes hierárquicos:
+
+| Chave | Valor |
+|---|---|
+| `ConnectionStrings__DefaultConnection` | `Data Source=/home/site/wwwroot/app_data/fyora_api.db` |
+| `Swagger__Enabled` | `true` |
+| `GEMINI_API_KEY` **ou** `Gemini__ApiKey` | `<sua chave>` |
+| *(Opcional)* `Cors__AllowedOrigins__0` | `https://seu-front.com` |
+| *(Opcional)* `Cors__AllowedOrigins__1` | `http://localhost:3000` |
+
+> **Importante:** crie a pasta persistente no Kudu:  
+> `site/wwwroot/app_data` (DebugConsole → `mkdir -p /home/site/wwwroot/app_data`)
 
 ---
 
@@ -95,216 +141,95 @@ dotnet build
 dotnet dev-certs https --trust
 dotnet run
 ```
-- Swagger: **https://localhost:7219/swagger**
-- O banco SQLite é criado automaticamente (`EnsureCreated`).
 
-### Testes rápidos (cURL)
+- UI: `https://localhost:7219/`
+- Swagger: `https://localhost:7219/swagger`
+- Health: `https://localhost:7219/health`
+
+Se quiser linha de comando para **efetuar chamadas**:
+
 ```bash
-# Healthcheck
-curl -k https://localhost:7219/health
+# Criar usuário
+curl -k -X POST https://localhost:7219/api/Users \
+  -H "Content-Type: application/json" \
+  -d "{\"nickname\":\"ana\",\"email\":\"ana@exemplo.com\"}"
 
-# Ping Gemini
-curl -k https://localhost:7219/api/Chat/ping
+# Listar usuários (busca por apelido)
+curl -k "https://localhost:7219/api/Users?search=ana"
 
 # Chat
 curl -k -X POST https://localhost:7219/api/Chat/ask \
   -H "Content-Type: application/json" \
+  -H "Accept: text/plain" \
   -d "{\"message\":\"Estou no dia 7 sem apostar e ansioso pelo fim de semana. Alguma dica?\"}"
 ```
 
 ---
 
-## Como testar os endpoints (Users & ProgressLogs)
+## Publicação em Azure
 
-### Pelo Swagger (recomendado)
-Acesse **https://localhost:7219/swagger** e execute na ordem:
+**Pré-requisitos**
+- Assinatura ativa (ex.: **Azure for Students**).
+- Plano de App Service (Linux) **B1 ou superior** recomendado; funciona no F1, mas com limites.
+- Visual Studio **Publish** (Zip Deploy) ou **GitHub Actions**.
 
-1. **Criar um usuário** — `POST /api/Users`
-   ```json
-   {
-     "nickname": "Ana",
-     "email": "ana@example.com"
-   }
-   ```
+**Passos (Zip Deploy via VS)**  
+1. Build **Release**.  
+2. `Publicar` → **Serviço de Aplicativo do Azure (Linux)** → Criar ou selecionar App.  
+3. Em **Variáveis de ambiente** do App Service, adicione:
+   - `ConnectionStrings__DefaultConnection = Data Source=/home/site/wwwroot/app_data/fyora_api.db`
+   - `Swagger__Enabled = true`
+   - `GEMINI_API_KEY` (ou `Gemini__ApiKey`)  
+4. Abra o **Kudu** e crie a pasta `site/wwwroot/app_data`.  
+5. **Restart** o App Service.  
+6. Acesse:
+   - UI: `https://<seuapp>.azurewebsites.net/`
+   - Swagger: `https://<seuapp>.azurewebsites.net/swagger`
+   - Health: `https://<seuapp>.azurewebsites.net/health`
 
-2. **Listar usuários** (com **LINQ** de busca opcional) — `GET /api/Users`  
-   - `GET /api/Users` → lista tudo  
-   - `GET /api/Users?search=ana` → filtra por nickname (case-insensitive)
-
-3. **Buscar por Id** — `GET /api/Users/{id}`
-
-4. **Atualizar** — `PUT /api/Users/{id}`  
-   ```json
-   {
-     "id": 1,
-     "nickname": "Ana Clara",
-     "email": "ana.clara@example.com",
-     "createdAt": "2025-10-17T00:00:00Z"
-   }
-   ```
-
-5. **Remover** — `DELETE /api/Users/{id}`
-
-6. **Criar log de progresso (relacionado a um usuário)** — `POST /api/Users/{userId}/progress`  
-   ```json
-   {
-     "daysWithoutGambling": 7,
-     "achievement": "1 semana sem apostar 🎉"
-   }
-   ```
-
-> Dica: depois, confira os logs do usuário (endpoint de listagem de logs, se houver) ou consulte pelo próprio usuário/SQLite.
-
-### Via cURL
-```bash
-# Criar usuário
-curl -k -X POST https://localhost:7219/api/Users \
-  -H "Content-Type: application/json" \
-  -d "{\"nickname\":\"Ana\",\"email\":\"ana@example.com\"}"
-
-# Listar com busca
-curl -k "https://localhost:7219/api/Users?search=ana"
-
-# Buscar por Id
-curl -k https://localhost:7219/api/Users/1
-
-# Atualizar
-curl -k -X PUT https://localhost:7219/api/Users/1 \
-  -H "Content-Type: application/json" \
-  -d "{\"id\":1,\"nickname\":\"Ana Clara\",\"email\":\"ana.clara@example.com\",\"createdAt\":\"2025-10-17T00:00:00Z\"}"
-
-# Remover
-curl -k -X DELETE https://localhost:7219/api/Users/1
-
-# Criar log de progresso (userId = 1)
-curl -k -X POST https://localhost:7219/api/Users/1/progress \
-  -H "Content-Type: application/json" \
-  -d "{\"daysWithoutGambling\":7,\"achievement\":\"1 semana sem apostar 🎉\"}"
-```
-
-### Via PowerShell
-```powershell
-# Criar usuário
-Invoke-RestMethod -Uri "https://localhost:7219/api/Users" -Method Post `
-  -Headers @{ "Content-Type"="application/json" } `
-  -Body '{"nickname":"Ana","email":"ana@example.com"}'
-
-# Listar com busca
-Invoke-RestMethod -Uri "https://localhost:7219/api/Users?search=ana" -Method Get
-
-# Criar log de progresso
-Invoke-RestMethod -Uri "https://localhost:7219/api/Users/1/progress" -Method Post `
-  -Headers @{ "Content-Type"="application/json" } `
-  -Body '{"daysWithoutGambling":7,"achievement":"1 semana sem apostar 🎉"}'
-```
-
-**Erros comuns**
-- `400 BadRequest`: campos obrigatórios ausentes/formatos inválidos.
-- `404 NotFound`: Id inexistente.
-- Certificado HTTPS em dev: rode `dotnet dev-certs https --trust`.
+**Observações**
+- **NÃO defina** Startup Command manualmente para apps .NET “built-in”.  
+- Se usar **GitHub Actions** (Deployment Center), mantenha os **App Settings** no portal/KeyVault.
 
 ---
 
-## Endpoints principais
+## Troubleshooting (erros comuns)
 
-### Chat (Gemini)
-- `GET /api/Chat/ping` — teste de conectividade/credencial
-- `POST /api/Chat/ask` — recebe `{ "message": "..." }` e retorna texto motivacional breve
+**`Application Error / 503` após publicar**  
+Geralmente é o SQLite tentando escrever em área **read-only**.  
+✔ Garanta:
+- `ConnectionStrings__DefaultConnection` apontando para `/home/site/wwwroot/app_data/fyora_api.db`  
+- Pasta `site/wwwroot/app_data` **existe** (Kudu)  
+- **Restart** após salvar variáveis
 
-### Usuários / Progresso
-- `GET /api/Users` — lista usuários
-- `GET /api/Users/{id}` — detalhe
-- `POST /api/Users` — cria
-- `PUT /api/Users/{id}` — atualiza
-- `DELETE /api/Users/{id}` — remove
+**`/swagger` não abre em produção**  
+✔ Adicione `Swagger__Enabled = true` e reinicie.
 
-- `GET /api/ProgressLogs` — lista logs
-- `POST /api/ProgressLogs` — cria log para um usuário existente
+**CORS no navegador (frontend externo)**  
+✔ Adicione `Cors__AllowedOrigins__N` com a(s) origem(ns).
 
-> **Swagger** expõe toda a coleção.
+**Segredos no GitHub**  
+✔ Nunca commit da chave. Use **User Secrets** local e **App Settings** no Azure.
 
 ---
 
 ## Consultas LINQ implementadas
 
-- **Filtro de usuários por `Nickname`** (contém; case-insensitive)
+- **Filtro por `Nickname` (case-insensitive)**:
   ```csharp
-  // GET /api/Users?search=ana
   var query = _ctx.Users.AsQueryable();
   if (!string.IsNullOrWhiteSpace(search))
       query = query.Where(u => u.Nickname.ToLower().Contains(search.ToLower()));
   var result = await query.OrderBy(u => u.Nickname).ToListAsync();
   ```
 
-- **Logs de um usuário ordenados por data desc**
+- **Logs de um usuário ordenados por data**:
   ```csharp
   var logs = await _ctx.ProgressLogs
       .Where(p => p.UserId == userId)
       .OrderByDescending(p => p.LogDate)
       .ToListAsync();
   ```
-
----
-
-## Integração com Google Gemini (REST)
-
-- Modelo padrão: **`gemini-2.0-flash`** (compatível com `v1beta`)
-- Chamada via `HttpClient` para `.../v1beta/models/{model}:generateContent?key=...`
-- Payload: `contents[ { role: "user", parts: [ { text } ] } ]`
-- Extração de resposta: `candidates[0].content.parts[0].text`
-
-> **Atenção:** `safetySettings` tem categorias específicas no `v1beta`. Mantivemos **sem safety em Dev** e **moderada em Prod** (apenas categorias suportadas).
-
----
-
-## CORS e HTTPS
-
-- **Dev**: HTTPS habilitado (`dotnet dev-certs https --trust`).  
-- Se for consumir a API a partir de um **frontend externo** (ex.: `http://localhost:3000`), adicione essa origem em `Cors:AllowedOrigins`.
-
----
-
-## Publicação em Azure (passo a passo)
-
-> **Observação sobre banco**: Em **Azure App Service Linux**, o diretório `/home` é **persistente**. Para um demo simples com SQLite, você pode apontar o caminho do DB para `/home/site/wwwroot/app_data/fyora_api.db`. Para produção, o ideal é migrar para **Azure SQL**/**PostgreSQL**.
-
-### A) App Service (via Visual Studio)
-1. **Build** em `Release`.
-2. Clique direito no projeto → **Publish** → **Azure** → **Azure App Service (Linux)** → Create New.
-3. Selecione **.NET 8 (LTS)**.
-4. Em **Settings** do recurso criado:
-   - **Configuration → Application settings**:
-     - `Gemini:ApiKey` = `***` (ou `GEMINI_API_KEY`)
-     - `ASPNETCORE_ENVIRONMENT` = `Production`
-     - (Opcional) `ConnectionStrings:DefaultConnection` = `Data Source=/home/site/wwwroot/app_data/fyora_api.db`
-   - **General settings**: Arrumar `WEBSITE_RUN_FROM_PACKAGE` (padrão) e `Always On` (se disponível).
-5. **Deploy** e acesse `https://<seuapp>.azurewebsites.net/swagger`.
-
-### B) App Service (via GitHub Actions)
-- Crie repositório e push do código.
-- No Azure Portal, **Deployment Center** → **GitHub** → selecione o repositório → **.NET 8**.
-- Adicione **secrets** no Azure (mesmos da opção A). O workflow do GitHub fará o build e deploy a cada push.
-
-### C) Azure SQL (opcional — recomendado p/ produção)
-1. Crie um **Azure SQL Database** e pegue a string de conexão (ADO.NET).  
-2. No projeto, adicione pacote `Microsoft.EntityFrameworkCore.SqlServer`.  
-3. Troque o provider em `Program.cs` para `UseSqlServer(...)`.  
-4. Rode migrações:
-   ```bash
-   dotnet tool install --global dotnet-ef
-   dotnet ef migrations add InitialCreate
-   dotnet ef database update
-   ```
-5. Configure a connection string no Azure **(ConnectionStrings:DefaultConnection)**.
-
----
-
-## Diagramas (C4 + Sequência)
-
-<img width="423" height="650" alt="C4-Container" src="https://github.com/user-attachments/assets/16b08a76-f53a-45d5-919d-397f11550397" />
-
-### C4 - Container (PlantUML)
-<img width="810" height="365" alt="Sequência — `POST apiChatask`" src="https://github.com/user-attachments/assets/f783b445-aa40-48f7-8db9-0480e58ca666" />
 
 ---
 
@@ -323,32 +248,43 @@ FyoraApi/
 │  └─ ProgressLog.cs
 ├─ DTOs/
 │  └─ CreateProgressLogDto.cs
+├─ wwwroot/
+│  └─ index.html          # UI (tema Fênix) para Chat/CRUD
 ├─ Properties/
 │  └─ launchSettings.json
 ├─ Program.cs
 ├─ appsettings.json
-├─ c4_container.puml
-├─ sequence_chat_ask.puml
 └─ README.md
 ```
 
 ---
 
+## Diagramas 
+
+### (C4 + Sequência)
+
+<img width="423" height="650" alt="C4-Container" src="https://github.com/user-attachments/assets/16b08a76-f53a-45d5-919d-397f11550397" />
+
+### C4 - Container 
+<img width="810" height="365" alt="Sequência — `POST apiChatask`" src="https://github.com/user-attachments/assets/f783b445-aa40-48f7-8db9-0480e58ca666" />
+
+---
+
 ## Checklist da Rubrica
 
-| Critério | Status | Observações |
+| Critério | Status | Evidência |
 |---|---|---|
-| CRUD completo com EF Core | ✅ | Users e ProgressLogs com endpoints CRUD (+ EnsureCreated) |
-| Pesquisas com LINQ | ✅ | Filtro por nickname, ordenações, consultas por usuário |
-| Publicação em Cloud | ⏳ | Seguir **Publicação em Azure** e anexar links (API e Portal/Plano) |
-| Endpoint externo (APIs) | ✅ | Gemini REST (`/api/Chat/ask`, `/api/Chat/ping`) |
+| CRUD completo com EF Core | ✅ | `UsersController` e `ProgressLogs` (+ EnsureCreated) |
+| Pesquisas com LINQ | ✅ | Filtro por `Nickname`, ordenações, join por `UserId` |
+| Publicação em Cloud | ✅ | App Service (Linux). Passo a passo + troubleshooting |
+| Endpoint externo (APIs) | ✅ | Gemini REST (`/api/Chat/ask`, health `/health`) |
 | Documentação do projeto | ✅ | Este README + Swagger |
 | Arquitetura em diagramas | ✅ | C4 Container + Sequência (PlantUML) |
-| Versionador (repositório) | ⏳ | Subir ao GitHub/DevOps e fornecer link |
-| Link do plano/projeto na nuvem | ⏳ | Fornecer acesso ao professor (Portal/Subscription/Resource Group/App Service) |
+| Versionador (repositório) | ✅ | GitHub |
+| Link do plano/projeto na nuvem | ✅ | Inclua URL do App Service/Portal na entrega |
 
 ---
 
 ## Licença
 
-Projeto acadêmico (FIAP). Uso apenas educacional, sem garantias.
+Projeto acadêmico (FIAP). Uso educacional, sem garantias.
