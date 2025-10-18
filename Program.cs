@@ -1,77 +1,113 @@
-using FyoraApi.Data;
+using System;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using FyoraApi.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ------------------------------
-// Services
-// ------------------------------
+// ------------------------- Services -------------------------
 
-// EF Core + SQLite
-builder.Services.AddDbContext<FyoraContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Controllers + Swagger
 builder.Services.AddControllers();
+
+// Swagger: documento sempre, UI em Dev ou flag
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
+builder.Services.AddSwaggerGen(opt =>
 {
-    c.SwaggerDoc("v1", new() { Title = "Fyora API", Version = "v1" });
-});
-
-// HttpClient para chamadas REST ao Gemini (timeout básico)
-builder.Services.AddHttpClient().ConfigureHttpClientDefaults(_ =>
-{
-    // ajuste se quiser algo maior
-    _.HttpClient.Timeout = TimeSpan.FromSeconds(20);
-});
-
-// CORS via appsettings.json (opcional para front separado)
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
-if (allowedOrigins.Length > 0)
-{
-    builder.Services.AddCors(options =>
+    opt.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        options.AddPolicy("LocalDev", policy =>
-            policy.WithOrigins(allowedOrigins)
-                  .AllowAnyHeader()
-                  .AllowAnyMethod());
+        Title = "FyoraApi",
+        Version = "v1",
+        Description = "ASP.NET Core 8 Web API • EF Core (SQLite) • Swagger • Gemini (REST)"
+    });
+});
+
+// ===== Connection string resiliente (local x Azure) =====
+string? connFromConfig = builder.Configuration.GetConnectionString("DefaultConnection");
+
+// Heurística: estamos no Azure App Service se a env var WEBSITE_SITE_NAME existir
+bool runningOnAzure = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME"));
+
+string connStr = !string.IsNullOrWhiteSpace(connFromConfig)
+    ? connFromConfig!
+    : runningOnAzure
+        // Azure: área persistente gravável
+        ? "Data Source=/home/site/wwwroot/app_data/fyora_api.db"
+        // Local: arquivo no diretório do app
+        : "Data Source=fyora_api.db";
+
+builder.Services.AddDbContext<FyoraContext>(opt => opt.UseSqlite(connStr));
+
+// CORS (opcional) — defina Cors__AllowedOrigins__0, __1... no Azure
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+if (allowedOrigins is { Length: > 0 })
+{
+    builder.Services.AddCors(opt =>
+    {
+        opt.AddPolicy("AllowConfiguredOrigins", p =>
+            p.WithOrigins(allowedOrigins)
+             .AllowAnyHeader()
+             .AllowAnyMethod());
     });
 }
 
+// HttpClient nomeado para a API do Gemini
+builder.Services.AddHttpClient("gemini", client =>
+{
+    client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 var app = builder.Build();
 
-// ------------------------------
-// Pipeline
-// ------------------------------
+// ------------------------- Pipeline -------------------------
+
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Fyora API v1"));
+    app.UseDeveloperExceptionPage();
+}
+
+// Swagger JSON sempre; UI em Dev ou flag
+app.UseSwagger();
+bool swaggerEnabled = app.Configuration.GetValue("Swagger:Enabled", false);
+if (app.Environment.IsDevelopment() || swaggerEnabled)
+{
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Fyora API v1");
+        // Manter UI do Swagger em /swagger (não ocupar a raiz)
+    });
 }
 
 app.UseHttpsRedirection();
 
-if (allowedOrigins.Length > 0)
-{
-    app.UseCors("LocalDev");
-}
+// Servir wwwroot (index.html abre em "/")
+app.UseDefaultFiles(new DefaultFilesOptions { DefaultFileNames = { "index.html" } });
+app.UseStaticFiles();
 
-app.UseAuthorization();
+// CORS (se configurado)
+if (allowedOrigins is { Length: > 0 })
+    app.UseCors("AllowConfiguredOrigins");
 
 app.MapControllers();
 
-// Healthcheck simples (para automação/monitoramento)
+// Health simples
 app.MapGet("/health", () => Results.Ok("healthy"));
 
-// ------------------------------
-// DB bootstrap: cria o banco na primeira execução
-// ------------------------------
-using (var scope = app.Services.CreateScope())
+// Criar o banco na primeira execução (sem derrubar o app se falhar)
+try
 {
-    var services = scope.ServiceProvider;
-    var context = services.GetRequiredService<FyoraContext>();
-    context.Database.EnsureCreated();
+    using var scope = app.Services.CreateScope();
+    var ctx = scope.ServiceProvider.GetRequiredService<FyoraContext>();
+    ctx.Database.EnsureCreated();
+}
+catch (Exception ex)
+{
+    // Loga no console do App Service / Log Stream e segue
+    Console.Error.WriteLine($"[EF EnsureCreated] Falhou: {ex.GetType().Name}: {ex.Message}");
+    // Em produção você pode remover EnsureCreated e usar migrações.
 }
 
 app.Run();

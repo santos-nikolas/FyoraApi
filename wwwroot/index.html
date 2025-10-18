@@ -1,0 +1,709 @@
+﻿<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Fyora • Console Admin</title>
+    <style>
+           /* ====== PALETA FÊNIX (DARK) ======
+        tons fogo (vermelho/laranja/âmbar) + neutro preto/grafite */
+           :root {
+               --bg: #0a0b10; /* quase preto */
+               --bg2: #0e1118; /* painel */
+               --card: #12151e; /* cartões */
+               --muted: #a7adbb; /* texto fraco */
+               --text: #eef2ff; /* texto principal (quase branco) */
+               --brand: #f97316; /* laranja vivo */
+               --brand-2: #ef4444; /* vermelho */
+               --brand-3: #f59e0b; /* âmbar/destaque */
+
+               --ok: #22c55e;
+               --warn: #f59e0b;
+               --err: #ef4444;
+               --border: #202433;
+               --soft: #0f131c;
+               --shadow: 0 10px 30px rgba(0,0,0,.45);
+               --radius: 16px;
+               --glow1: radial-gradient(900px 400px at 10% -10%, rgba(239,68,68,.18), transparent 60%);
+               --glow2: radial-gradient(900px 500px at 110% 0%, rgba(249,115,22,.18), transparent 55%);
+           }
+
+           * {
+               box-sizing: border-box
+           }
+
+           html, body {
+               height: 100%
+           }
+
+           body {
+               margin: 0;
+               font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+               background: var(--glow1), var(--glow2), var(--bg);
+               color: var(--text)
+           }
+
+           .wrap {
+               max-width: 1100px;
+               margin: 32px auto;
+               padding: 0 16px
+           }
+
+           header {
+               display: flex;
+               gap: 12px;
+               align-items: center;
+               justify-content: space-between;
+               margin-bottom: 16px
+           }
+
+           .brand {
+               display: flex;
+               gap: 12px;
+               align-items: center
+           }
+
+           .logo {
+               width: 38px;
+               height: 38px;
+               border-radius: 12px;
+               background: conic-gradient(from 210deg, #fde68a, #f59e0b 20%, #f97316 45%, #ef4444 70%, #fde68a 100%);
+               box-shadow: 0 0 0 2px #ffffff10, 0 8px 28px rgba(239,68,68,.35);
+           }
+
+           h1 {
+               font-size: 1.25rem;
+               margin: 0
+           }
+
+           .muted {
+               color: var(--muted)
+           }
+
+           .card {
+               background: linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));
+               border: 1px solid var(--border);
+               border-radius: var(--radius);
+               box-shadow: var(--shadow)
+           }
+
+           .nav {
+               display: flex;
+               gap: 8px;
+               background: var(--soft);
+               border: 1px solid var(--border);
+               padding: 6px;
+               border-radius: 999px;
+               width: fit-content
+           }
+
+           .tab {
+               padding: 10px 14px;
+               border-radius: 999px;
+               cursor: pointer;
+               color: var(--muted);
+               border: 1px solid transparent
+           }
+
+               .tab.active {
+                   background: linear-gradient(180deg,#1e2330,#171c28);
+                   color: #fff;
+                   border-color: #2b3448;
+                   box-shadow: inset 0 0 0 1px #ffffff0f, 0 0 0 2px #ffffff05;
+               }
+
+           .grid {
+               display: grid;
+               gap: 16px
+           }
+
+           .g-2 {
+               grid-template-columns: 1fr
+           }
+
+           @media(min-width:960px) {
+               .g-2 {
+                   grid-template-columns: 1fr 1fr
+               }
+           }
+
+           .pad {
+               padding: 16px
+           }
+
+           input, textarea, select {
+               width: 100%;
+               padding: 12px;
+               border-radius: 12px;
+               border: 1px solid #2a3146;
+               outline: none;
+               background: #0b0f18;
+               color: var(--text);
+               transition: border-color .15s, box-shadow .15s;
+           }
+
+               input:focus, textarea:focus, select:focus {
+                   border-color: #f59e0b;
+                   box-shadow: 0 0 0 3px #f59e0b33;
+               }
+
+           textarea {
+               min-height: 120px;
+               resize: vertical
+           }
+
+           button {
+               border: none;
+               padding: 10px 14px;
+               border-radius: 12px;
+               color: #0b0b0b;
+               font-weight: 800;
+               cursor: pointer;
+               box-shadow: var(--shadow);
+               background: linear-gradient(180deg, var(--brand), #ea580c);
+           }
+
+               button:hover {
+                   filter: brightness(1.05)
+               }
+
+               button.ghost {
+                   background: #141927;
+                   color: #e5e7eb;
+                   border: 1px solid #2a3146
+               }
+
+               button.warn {
+                   background: linear-gradient(180deg,#f59e0b,#d97706);
+                   color: #111
+               }
+
+               button.danger {
+                   background: linear-gradient(180deg,#ef4444,#dc2626);
+                   color: #fff
+               }
+
+           .row {
+               display: flex;
+               gap: 10px;
+               align-items: center
+           }
+
+               .row.wrap {
+                   flex-wrap: wrap
+               }
+
+           .right {
+               margin-left: auto
+           }
+
+           .title {
+               font-weight: 800;
+               font-size: 1.05rem
+           }
+
+           .table {
+               width: 100%;
+               border-collapse: collapse
+           }
+
+               .table th, .table td {
+                   padding: 10px 8px;
+                   border-bottom: 1px solid #2a3146;
+                   text-align: left;
+                   font-size: .95rem
+               }
+
+               .table th {
+                   color: #f8fafc;
+                   font-weight: 700
+               }
+
+           .pill {
+               display: inline-flex;
+               align-items: center;
+               gap: 8px;
+               font-size: .85rem;
+               padding: 6px 10px;
+               border-radius: 999px;
+               background: #151a27;
+               border: 1px solid #2a3146
+           }
+
+           .status.ok {
+               color: var(--ok)
+           }
+
+           .status.err {
+               color: var(--err)
+           }
+
+           .status.warn {
+               color: var(--brand-3)
+           }
+
+           .out {
+               white-space: pre-wrap;
+               background: #0c111d;
+               border: 1px solid #263046;
+               border-radius: 12px;
+               padding: 12px;
+               min-height: 68px
+           }
+
+           .hint {
+               font-size: .9rem;
+               color: var(--muted)
+           }
+
+           .section-title {
+               margin: 0 0 10px;
+               font-weight: 800
+           }
+
+           .hr {
+               height: 1px;
+               background: #252b3a;
+               margin: 12px 0
+           }
+
+           .spinner {
+               width: 18px;
+               height: 18px;
+               border-radius: 999px;
+               border: 2px solid #ffffff34;
+               border-top-color: #fff;
+               animation: spin 1s linear infinite
+           }
+
+           @keyframes spin {
+               to {
+                   transform: rotate(360deg)
+               }
+           }
+           /* Toasts */
+           .toasts {
+               position: fixed;
+               right: 16px;
+               bottom: 16px;
+               display: flex;
+               flex-direction: column;
+               gap: 10px;
+               z-index: 9999
+           }
+
+           .toast {
+               background: #121621;
+               border: 1px solid #2a3146;
+               color: #e5e7eb;
+               padding: 12px 14px;
+               border-radius: 12px;
+               min-width: 260px;
+               box-shadow: var(--shadow)
+           }
+
+               .toast.ok {
+                   border-color: #1f3a28
+               }
+
+               .toast.err {
+                   border-color: #3b1d1d
+               }
+
+               .toast .title {
+                   font-weight: 800
+               }
+
+               .toast .muted {
+                   font-size: .9rem
+               }
+
+           .kbd {
+               background: #1b2133;
+               border: 1px solid #2a3146;
+               border-radius: 6px;
+               padding: 2px 6px;
+               font-size: .8rem;
+               color: #fef3c7
+           }
+
+           .mono {
+               font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace
+           }
+
+           a {
+               color: #fde68a
+           }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <header>
+            <div class="brand">
+                <div class="logo" aria-hidden="true"></div>
+                <div>
+                    <h1>Fyora • Console Admin</h1>
+                    <div class="muted">Gerencie usuários, registre progresso e teste o chat de apoio (Gemini).</div>
+                </div>
+            </div>
+            <div class="row wrap">
+                <span class="pill">Base: <span id="base" class="mono"></span></span>
+                <button class="ghost" id="setBase">Trocar base</button>
+            </div>
+        </header>
+
+        <div class="nav" role="tablist" aria-label="Seções">
+            <button class="tab active" data-tab="chat" aria-selected="true">Chat</button>
+            <button class="tab" data-tab="users">Usuários</button>
+            <button class="tab" data-tab="progress">Progresso</button>
+        </div>
+
+        <!-- CHAT -->
+        <section id="chat" class="card pad" role="tabpanel" aria-labelledby="Chat">
+            <div class="row wrap">
+                <div class="title">Chat de Apoio</div>
+                <span class="pill right">Status: <strong id="status" class="status warn">verificando…</strong></span>
+                <a class="pill" style="text-decoration:none" href="/swagger" target="_blank">Swagger</a>
+            </div>
+            <div class="hr"></div>
+
+            <div class="grid g-2">
+                <div>
+                    <label class="hint">Mensagem</label>
+                    <textarea id="msg" placeholder="Ex.: Estou no dia 7 sem apostar e ansioso pelo fim de semana. Alguma dica?"></textarea>
+                    <div class="row" style="margin-top:10px">
+                        <button id="send"><span class="txt">Enviar</span></button>
+                        <span class="hint">Dica: <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span></span>
+                    </div>
+                </div>
+                <div>
+                    <label class="hint">Resposta</label>
+                    <div id="answer" class="out"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- USERS -->
+        <section id="users" class="card pad" role="tabpanel" aria-labelledby="Usuários" hidden>
+            <div class="row wrap">
+                <div class="title">Usuários</div>
+                <div class="right row">
+                    <input id="search" placeholder="Buscar por nickname (opcional)" />
+                    <button id="btnSearch" class="ghost">Buscar</button>
+                    <button id="btnReload" class="ghost">Recarregar</button>
+                </div>
+            </div>
+            <div class="hr"></div>
+
+            <div class="grid g-2">
+                <div>
+                    <h3 class="section-title">Criar / Atualizar</h3>
+                    <div class="grid">
+                        <input id="uId" placeholder="ID (preenchido ao editar)" disabled />
+                        <input id="uNick" placeholder="Nickname" />
+                        <input id="uEmail" type="email" placeholder="Email" />
+                    </div>
+                    <div class="row" style="margin-top:10px">
+                        <button id="btnCreate">Criar</button>
+                        <button id="btnUpdate" class="warn">Atualizar</button>
+                        <button id="btnReset" class="ghost">Limpar</button>
+                    </div>
+                    <div id="userFormHint" class="hint" style="margin-top:8px"></div>
+                </div>
+
+                <div>
+                    <h3 class="section-title">Lista</h3>
+                    <div class="out" style="padding:0">
+                        <table class="table" id="tblUsers">
+                            <thead>
+                                <tr><th>ID</th><th>Nickname</th><th>Email</th><th style="width:210px">Ações</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PROGRESS -->
+        <section id="progress" class="card pad" role="tabpanel" aria-labelledby="Progresso" hidden>
+            <div class="title">Registro de Progresso</div>
+            <div class="hr"></div>
+
+            <div class="grid g-2">
+                <div>
+                    <h3 class="section-title">Novo registro</h3>
+                    <div class="grid">
+                        <input id="pUserId" type="number" placeholder="UserId (ex.: 1)" />
+                        <input id="pDate" type="date" />
+                        <input id="pDays" type="number" min="0" placeholder="Dias sem apostar" />
+                        <input id="pAchv" placeholder="Conquista / nota" />
+                    </div>
+                    <div class="row" style="margin-top:10px">
+                        <button id="btnAddProgress">Adicionar</button>
+                    </div>
+                    <div class="hint" style="margin-top:8px">A API tenta usar <code>/api/Users/{userId}/progresslogs</code>; se não existir, faz fallback para <code>/api/ProgressLogs</code>.</div>
+                </div>
+
+                <div>
+                    <h3 class="section-title">Logs</h3>
+                    <div class="row">
+                        <input id="pListUserId" type="number" placeholder="Filtrar por UserId (opcional)" />
+                        <button id="btnListProgress" class="ghost">Listar</button>
+                    </div>
+                    <div class="out" id="progressOut" style="margin-top:10px; min-height:80px"></div>
+                </div>
+            </div>
+        </section>
+
+        <div class="toasts" id="toasts"></div>
+    </div>
+
+    <script>
+        // ====== Helpers ======
+        const $ = s => document.querySelector(s);
+        const $$ = s => Array.from(document.querySelectorAll(s));
+        const BASE_DEFAULT = window.location.origin;
+        let BASE = localStorage.getItem("fyora_base") || BASE_DEFAULT;
+        $("#base").textContent = BASE;
+
+        function toast(msg, type = "ok", detail = "") {
+            const el = document.createElement("div");
+            el.className = `toast ${type}`;
+            el.innerHTML = `<div class="title">${msg}</div>${detail ? `<div class="muted">${detail}</div>` : ""}`;
+            $("#toasts").appendChild(el);
+            setTimeout(() => { el.remove(); }, 4200);
+        }
+
+        async function api(path, options = {}) {
+            const res = await fetch(`${BASE}${path}`, options);
+            const ct = res.headers.get("Content-Type") || "";
+            const body = ct.includes("application/json") ? await res.json().catch(() => ({})) : await res.text();
+            if (!res.ok) {
+                const msg = typeof body === "string" ? body : (body?.error || JSON.stringify(body));
+                throw new Error(`${res.status} ${res.statusText}: ${msg}`);
+            }
+            return body;
+        }
+
+        function setLoading(btn, loading = true) {
+            const t = btn.querySelector(".txt") || btn;
+            if (loading) {
+                btn.disabled = true;
+                btn._txt = t.textContent;
+                t.innerHTML = `<span class="spinner"></span>`;
+            } else {
+                btn.disabled = false;
+                t.textContent = btn._txt || "Enviar";
+            }
+        }
+
+        // ====== Tabs ======
+        $$(".tab").forEach(tab => {
+            tab.addEventListener("click", () => {
+                $$(".tab").forEach(t => t.classList.remove("active"));
+                tab.classList.add("active");
+                const id = tab.dataset.tab;
+                ["chat", "users", "progress"].forEach(s => { $("#" + s).hidden = (s !== id); });
+            });
+        });
+
+        // ====== Base override ======
+        $("#setBase").addEventListener("click", () => {
+            const val = prompt("Base da API:", BASE);
+            if (!val) return;
+            BASE = val.replace(/\/$/, "");
+            localStorage.setItem("fyora_base", BASE);
+            $("#base").textContent = BASE;
+            toast("Base atualizada", "ok", BASE);
+            health();
+            loadUsers();
+        });
+
+        // ====== Health (status) ======
+        async function health() {
+            try {
+                const t = await fetch(`${BASE}/health`, { cache: "no-store" }).then(r => r.text());
+                $("#status").textContent = t || "ok";
+                $("#status").className = "status ok";
+            } catch (e) {
+                $("#status").textContent = "offline";
+                $("#status").className = "status err";
+            }
+        }
+
+        // ====== Chat ======
+        async function ask() {
+            const btn = $("#send");
+            const msg = $("#msg").value.trim();
+            if (!msg) return toast("Escreva uma mensagem.", "err");
+            setLoading(btn, true);
+            $("#answer").textContent = "Gerando resposta…";
+            try {
+                const body = await api(`/api/Chat/ask`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "text/plain" },
+                    body: JSON.stringify({ message: msg })
+                });
+                $("#answer").textContent = typeof body === "string" ? body : JSON.stringify(body, null, 2);
+                toast("Resposta recebida");
+            } catch (e) {
+                $("#answer").textContent = e.message;
+                toast("Falha no chat", "err", e.message);
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+        $("#send").addEventListener("click", ask);
+        $("#msg").addEventListener("keydown", e => { if (e.ctrlKey && e.key === "Enter") ask(); });
+
+        // ====== Users (CRUD + list) ======
+        async function loadUsers(query = "") {
+            $("#tblUsers tbody").innerHTML = `<tr><td colspan="4"><div class="row"><span class="spinner"></span> Carregando…</div></td></tr>`;
+            try {
+                const qs = query ? `?search=${encodeURIComponent(query)}` : "";
+                const users = await api(`/api/Users${qs}`);
+                if (!Array.isArray(users) || users.length === 0) {
+                    $("#tblUsers tbody").innerHTML = `<tr><td colspan="4" class="muted">Sem resultados.</td></tr>`;
+                    return;
+                }
+                $("#tblUsers tbody").innerHTML = users.map(u => `
+            <tr>
+              <td>${u.id}</td>
+              <td>${u.nickname}</td>
+              <td>${u.email}</td>
+              <td>
+                <div class="row">
+                  <button class="ghost" onclick="editUser(${u.id})">Editar</button>
+                  <button class="warn" onclick="viewUser(${u.id})">Ver</button>
+                  <button class="danger" onclick="delUser(${u.id})">Excluir</button>
+                </div>
+              </td>
+            </tr>
+          `).join("");
+            } catch (e) {
+                $("#tblUsers tbody").innerHTML = `<tr><td colspan="4" class="err">${e.message}</td></tr>`;
+            }
+        }
+
+        async function createUser() {
+            const nickname = $("#uNick").value.trim();
+            const email = $("#uEmail").value.trim();
+            if (!nickname || !email) return toast("Preencha nickname e email.", "err");
+            try {
+                await api(`/api/Users`, {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nickname, email })
+                });
+                toast("Usuário criado");
+                $("#uId").value = ""; $("#uNick").value = ""; $("#uEmail").value = "";
+                loadUsers($("#search").value.trim());
+            } catch (e) { toast("Falha ao criar", "err", e.message); }
+        }
+
+        async function viewUser(id) {
+            try {
+                const u = await api(`/api/Users/${id}`);
+                $("#uId").value = u.id; $("#uNick").value = u.nickname; $("#uEmail").value = u.email;
+                toast("Usuário carregado");
+            } catch (e) { toast("Falha ao carregar", "err", e.message); }
+        }
+
+        async function editUser(id) { viewUser(id); }
+
+        async function updateUser() {
+            const id = $("#uId").value.trim();
+            if (!id) return toast("Selecione um usuário para atualizar.", "err");
+            const nickname = $("#uNick").value.trim();
+            const email = $("#uEmail").value.trim();
+            if (!nickname || !email) return toast("Preencha nickname e email.", "err");
+            try {
+                await api(`/api/Users/${id}`, {
+                    method: "PUT", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: Number(id), nickname, email })
+                });
+                toast("Usuário atualizado");
+                loadUsers($("#search").value.trim());
+            } catch (e) { toast("Falha ao atualizar", "err", e.message); }
+        }
+
+        async function delUser(id) {
+            if (!confirm(`Excluir usuário #${id}?`)) return;
+            try {
+                await api(`/api/Users/${id}`, { method: "DELETE" });
+                toast("Usuário excluído");
+                const q = $("#search").value.trim();
+                loadUsers(q);
+            } catch (e) { toast("Falha ao excluir", "err", e.message); }
+        }
+
+        $("#btnCreate").addEventListener("click", createUser);
+        $("#btnUpdate").addEventListener("click", updateUser);
+        $("#btnReset").addEventListener("click", () => { $("#uId").value = ""; $("#uNick").value = ""; $("#uEmail").value = ""; });
+        $("#btnReload").addEventListener("click", () => loadUsers($("#search").value.trim()));
+        $("#btnSearch").addEventListener("click", () => loadUsers($("#search").value.trim()));
+
+        // ====== Progress ======
+        async function addProgress() {
+            const userId = Number($("#pUserId").value);
+            const logDate = $("#pDate").value || new Date().toISOString().slice(0, 10);
+            const daysWithoutGambling = Number($("#pDays").value || 0);
+            const achievement = $("#pAchv").value.trim() || "Progresso registrado";
+            if (!userId) return toast("Informe o UserId.", "err");
+
+            try {
+                // preferencial
+                let ok = true;
+                try {
+                    await api(`/api/Users/${userId}/progresslogs`, {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ logDate, daysWithoutGambling, achievement })
+                    });
+                } catch { ok = false; }
+                // fallback
+                if (!ok) {
+                    await api(`/api/ProgressLogs`, {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ userId, logDate, daysWithoutGambling, achievement })
+                    });
+                }
+                toast("Progresso adicionado");
+                listProgress();
+            } catch (e) { toast("Falha ao adicionar", "err", e.message); }
+        }
+
+        async function listProgress() {
+            const userId = Number($("#pListUserId").value);
+            $("#progressOut").textContent = "Carregando…";
+            try {
+                let data = await api(`/api/ProgressLogs`).catch(() => []);
+                if (Number.isFinite(userId) && userId > 0 && Array.isArray(data)) {
+                    data = data.filter(p => p.userId === userId);
+                }
+                if (!Array.isArray(data) || data.length === 0) {
+                    $("#progressOut").textContent = "(sem registros)";
+                    return;
+                }
+                const lines = data.map(p => {
+                    const d = (p.logDate || "").split("T")[0];
+                    return `#${p.id ?? "?"} — user:${p.userId} — ${d} — ${p.daysWithoutGambling} dia(s) — ${p.achievement}`;
+                }).join("\n");
+                $("#progressOut").textContent = lines;
+            } catch (e) {
+                $("#progressOut").textContent = `Falha ao listar: ${e.message}\n(Dica: se sua API não expõe GET /api/ProgressLogs, ignore esta listagem.)`;
+            }
+        }
+
+        $("#btnAddProgress").addEventListener("click", addProgress);
+        $("#btnListProgress").addEventListener("click", listProgress);
+
+        // ====== Boot ======
+        health();
+        loadUsers();
+        $("#msg").focus();
+        window.editUser = editUser;
+        window.viewUser = viewUser;
+        window.delUser = delUser;
+    </script>
+</body>
+</html>
